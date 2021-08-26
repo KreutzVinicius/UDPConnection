@@ -12,7 +12,6 @@ class manager:
         self.socket: socket
         self.full_data = ''
         self.manager_buffer = buffer(1024, self.MTU)
-        self.cwnd = self.MTU
         self.ssthresh = 2
 
     def create_socket(self):
@@ -28,6 +27,8 @@ class manager:
     def client_send_package(self, data):
         # build buffer
         self.manager_buffer = self.build_client_buffer(data)
+        self.manager_buffer.crnt_snd_wnd(self.MTU)
+        print(self.manager_buffer.snd_wnd)
 
         # send SYN
         self.manager_buffer.data_list[0] = self.client_pack(
@@ -49,8 +50,7 @@ class manager:
 
             # while not over
             while not final_package:
-                for i in range(start, start+goal-1):
-                    print(i)
+                for i in range(start, start+goal):
                     self.manager_buffer.data_list[i] = self.client_pack(
                         self.manager_buffer.data_list[i])
                     self.send_data(
@@ -62,7 +62,7 @@ class manager:
 
                 # receive window
                 rsp_list = []
-                for i in range(0, goal-1):
+                for i in range(goal):
                     # receive response
                     response, address = self.receive_data()
                     rsp_list.append(response)
@@ -95,10 +95,10 @@ class manager:
                                                                                    self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt):
                     self.manager_buffer.cwnd = (
                         2 ** self.ssthresh)  # slow start
-                    self.ssthresh += 1
+                    self.ssthresh = self.ssthresh + 1
                 else:
                     self.manager_buffer.cwnd = self.manager_buffer.snd_una + \
-                        self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt  # max disp
+                        self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt  # window disp
 
                 start = self.manager_buffer.snd_nxt
                 goal = self.manager_buffer.cwnd
@@ -106,7 +106,7 @@ class manager:
                 if goal + start > len(self.manager_buffer.data_list):
                     goal = len(self.manager_buffer.data_list)
 
-        self.ssthresh = 2
+        self.ssthresh = 1
 
         # NOT SYNACK? TO DO
 
@@ -128,10 +128,13 @@ class manager:
             self.manager_buffer.snd_nxt = 1
             start = self.manager_buffer.snd_una
 
+            print(self.manager_buffer.cwnd)
+
             # while package has not been fully assembled
             while not final_package:
-                for i in range(0, self.manager_buffer.cwnd-1):
+                for i in range(self.manager_buffer.cwnd):
                     data, address = self.receive_data()
+                    self.manager_buffer.crnt_rcv_wnd(data, self.MTU)
                     data = self.server_pack(data)
 
                     # if pack is repeated ignore
@@ -150,7 +153,7 @@ class manager:
                     self.manager_buffer.data_list)
                 # response window
                 # just send everything
-                for i in range(start, self.manager_buffer.snd_nxt-1):
+                for i in range(start, start + self.manager_buffer.cwnd):
                     self.send_data(self.manager_buffer.data_list[i], address)
                     self.manager_buffer.snd_una = self.manager_buffer.snd_una + 1
 
@@ -162,7 +165,7 @@ class manager:
                                                                                    self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt):
                     self.manager_buffer.cwnd = (
                         2 ** self.ssthresh)  # slow start
-                    self.ssthresh += 1
+                    self.ssthresh = self.ssthresh + 1
                 else:
                     self.manager_buffer.cwnd = 1 + self.manager_buffer.snd_una + \
                         self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt  # max disp
@@ -184,7 +187,7 @@ class manager:
 
         # initial cwnd to slow start
         self.manager_buffer.cwnd = 1
-        self.ssthresh = 2
+        self.ssthresh = 1
 
         # if (timeout) == True:
         #    self.manager_buffer.ssthresh = self.manager_buffer.cwnd / 2,
