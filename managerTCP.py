@@ -13,7 +13,7 @@ class manager:
         self.full_data = ''
         self.manager_buffer = buffer(1024, self.MTU)
         self.cwnd = self.MTU
-        self.ssthresh = 16
+        self.ssthresh = 2
 
     def create_socket(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -90,13 +90,23 @@ class manager:
                     else:
                         continue
 
-                self.manager_buffer.cwnd = self.manager_buffer.snd_una + \
-                    self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt
+                if(self.manager_buffer.cwnd < self.manager_buffer.snd_una +
+                   self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt) and (2 ** self.ssthresh < self.manager_buffer.snd_una +
+                                                                                   self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt):
+                    self.manager_buffer.cwnd = (
+                        2 ** self.ssthresh)  # slow start
+                    self.ssthresh += 1
+                else:
+                    self.manager_buffer.cwnd = self.manager_buffer.snd_una + \
+                        self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt  # max disp
+
                 start = self.manager_buffer.snd_nxt
                 goal = self.manager_buffer.cwnd
 
                 if goal + start > len(self.manager_buffer.data_list):
                     goal = len(self.manager_buffer.data_list)
+
+        self.ssthresh = 2
 
         # NOT SYNACK? TO DO
 
@@ -146,9 +156,16 @@ class manager:
 
                     if self.decode_to_header(self.manager_buffer.data_list[i]).FIN:
                         break
-
-                self.manager_buffer.cwnd = 1 + self.manager_buffer.snd_una + \
-                    self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt
+                        # se cwnd < tamanho max disponivel && ssthresh < tamanho max disponivel
+                if(self.manager_buffer.cwnd < self.manager_buffer.snd_una +
+                   self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt) and (2 ** self.ssthresh < self.manager_buffer.snd_una +
+                                                                                   self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt):
+                    self.manager_buffer.cwnd = (
+                        2 ** self.ssthresh)  # slow start
+                    self.ssthresh += 1
+                else:
+                    self.manager_buffer.cwnd = 1 + self.manager_buffer.snd_una + \
+                        self.manager_buffer.snd_wnd - self.manager_buffer.snd_nxt  # max disp
 
                 # if window is full or near clear space by assembling
                 if self.manager_buffer.cwnd == 0 or self.manager_buffer.remaining_slots(self.MTU) < self.manager_buffer.cwnd:
@@ -167,6 +184,7 @@ class manager:
 
         # initial cwnd to slow start
         self.manager_buffer.cwnd = 1
+        self.ssthresh = 2
 
         # if (timeout) == True:
         #    self.manager_buffer.ssthresh = self.manager_buffer.cwnd / 2,

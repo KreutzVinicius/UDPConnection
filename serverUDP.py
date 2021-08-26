@@ -8,7 +8,5 @@ server_manager.create_socket()
 # Bind the socket to the port
 server_manager.create_connection('localhost', 10000)
 
-try:
+while True:
     server_manager.server_get_package()
-finally:
-    print("done")
