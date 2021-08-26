@@ -1,0 +1,45 @@
+TODO:
+Tirar LEN da resposta do server (enviar só header)
+Inverter header data
+
+----------------------------------------------------------------------------------
+
+cliente => manda uma string => fragmenta (MTU) => envia em janelas => recebe em janelas
+server => recebe janelas => envia janelas
+
+ack, seq, len = ok
+ordena pacotes = ok
+
+------------------------------------------------------------------------------------
+
+TODO:
+implementar tamanho da janela
+implementar slow start + fast rec (<< timeout)
+
+
+-----------------------
+
+Slowstart() 
+    cwnd = mtu
+    ssthresh = 64kb
+    dupAckCount = 0
+
+
+1) Timeout: ssthresh = cwnd / 2,
+cwnd = 1
+2) Se cwnd >= ssthresh, altera
+para CongestionAvoidance()
+
+
+
+CongestionAvoidance() => 
+    ssthresh = cwnd/2
+    cwnd = 1 mss
+
+
+
+
+
+
+
+
